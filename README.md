@@ -116,7 +116,7 @@ var fn4 = typed({
 function fnPlain(a, b) {
   return 'a is a number, b is a string';
 }
-fnPlain.signature = 'number, string';
+fnPlain.signature = 'number, string';  // can also be: 'fnPlain(number, string)'
 var fn5 = typed(fnPlain);
 
 // use the functions

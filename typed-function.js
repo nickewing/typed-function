@@ -1258,16 +1258,21 @@
 
       for (var i = 0; i < fns.length; i++) {
         var fn = fns[i];
+        var fnName = (typeof fn.signatures === 'object')
+            ? fn.name
+            : typeof fn.signature === 'string'
+                ? (extractSignatureArguments(fn.signature).name || fn.name)
+                : null
 
         // check whether the names are the same when defined
-        if ((typeof fn.signatures === 'object' || typeof fn.signature === 'string') && fn.name !== '') {
+        if (fnName) { // fnName must be not null and not empty
           if (name === '') {
-            name = fn.name;
+            name = fnName;
           }
-          else if (name !== fn.name) {
-            var err = new Error('Function names do not match (expected: ' + name + ', actual: ' + fn.name + ')');
+          else if (name !== fnName) {
+            var err = new Error('Function names do not match (expected: ' + name + ', actual: ' + fnName + ')');
             err.data = {
-              actual: fn.name,
+              actual: fnName,
               expected: name
             };
             throw err;
@@ -1276,6 +1281,21 @@
       }
 
       return name;
+    }
+
+    /**
+     * Extract the name and arguments from a signature like 'myFunction(string, string)'.
+     * For example
+     *   'myFunction(string, string)' returns {name: 'myFunction', args: 'string, string'}
+     *   'string, string'             returns {name: null, args: 'string, string'}
+     * @param {string} fullSignature
+     * @returns {{name: string | null, args: string}}
+     */
+    function extractSignatureArguments(fullSignature) {
+      var match = /^\s*?(\w+)\s*?\((.+)\)\s*?$/.exec(fullSignature)
+      return match
+          ? { name: match[1], args: match[2] }
+          : { name: null, args: fullSignature }
     }
 
     // extract and merge all signatures of a list with typed functions
@@ -1306,8 +1326,9 @@
           }
         }
         else if (typeof fn.signature === 'string') {
-          validateUnique(fn.signature, fn);
-          signaturesMap[fn.signature] = fn;
+          var args = extractSignatureArguments(fn.signature).args
+          validateUnique(args, fn);
+          signaturesMap[args] = fn;
         }
         else {
           err = new TypeError('Function is no typed-function (index: ' + i + ')');

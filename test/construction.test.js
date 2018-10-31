@@ -34,6 +34,32 @@ describe('construction', function() {
     assert.deepEqual(Object.keys(fn.signatures), ['string']);
   });
 
+  it('should create a typed function from a regular function with a named signature', function() {
+    function myFunction(a, b) {
+      return 'foo';
+    }
+    myFunction.signature = 'myFunction(string, string)'
+
+    var fn = typed(myFunction);
+
+    assert.equal(fn('bar', 'baz'), 'foo');
+    assert.equal(fn.name, 'myFunction');
+    assert.deepEqual(Object.keys(fn.signatures), ['string,string']);
+  });
+
+  it('should create a typed function from a regular function with a named signature (2)', function() {
+    function myFunction(str) {
+      return 'foo';
+    }
+    myFunction.signature = 'myFunctionName(string, string)'
+
+    var fn = typed(myFunction);
+
+    assert.equal(fn('bar', 'baz'), 'foo');
+    assert.equal(fn.name, 'myFunctionName');
+    assert.deepEqual(Object.keys(fn.signatures), ['string,string']);
+  });
+
   it('should create an unnamed function', function() {
     var fn = typed({
       'string': function (str) {
