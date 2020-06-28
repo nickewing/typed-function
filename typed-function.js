@@ -743,27 +743,18 @@
     }
 
     /**
-     * Preprocess arguments before calling the original function:
-     * - if needed convert the parameters
-     * - in case of rest parameters, move the rest parameters into an Array
-     * @param {Param[]} params
+     * If function has applicable conversions, return a wrapped function with those conversions,
+     * otherwise return given function unaltered
      * @param {function} fn
-     * @return {function} Returns a wrapped function
+     * @param {Param[]} params
+     * @return {function} Returns a wrapped function or the original function
      */
-    function compileArgsPreprocessing(params, fn, resolveSelf) {
-      function fnResolveSelf() {
-        return fn.apply(resolveSelf(), arguments);
-      }
-
-      var fnConvert = fnResolveSelf;
-
-      // TODO: can we make this wrapper function smarter/simpler?
-
+    function applyConversions(fn, params) {
       if (params.some(hasConversions)) {
         var restParam = hasRestParam(params);
         var compiledConversions = params.map(compileArgConversion)
 
-        fnConvert = function convertArgs() {
+        return function convertArgs() {
           var args = [];
           var last = restParam ? arguments.length - 1 : arguments.length;
           for (var i = 0; i < last; i++) {
@@ -773,21 +764,58 @@
             args[last] = arguments[last].map(compiledConversions[last]);
           }
 
-          return fnResolveSelf.apply(null, args);
+          return fn.apply(null, args);
         }
+      } else {
+        return fn;
       }
+    }
 
-      var fnPreprocess = fnConvert;
+    /**
+     * If function uses rest parameters, return a wrapped function that applies those parameters,
+     * otherwise return given function unaltered
+     * @param {function} fn
+     * @param {Param[]} params
+     * @return {function} Returns a wrapped function or the original function
+     */
+    function applyRestParams(fn, params) {
       if (hasRestParam(params)) {
         var offset = params.length - 1;
 
-        fnPreprocess = function preprocessRestParams () {
-          return fnConvert.apply(null,
-              slice(arguments, 0, offset).concat([slice(arguments, offset)]));
+        return function preprocessRestParams () {
+          return fn.apply(null, slice(arguments, 0, offset).concat([slice(arguments, offset)]));
         }
+      } else {
+        return fn;
       }
+    }
 
-      return fnPreprocess;
+    /**
+     * Return a wrapped function that applies the given function with self bound
+     * @param {function} fn
+     * @param {function} resolveSelf
+     * @return {function} Returns a wrapped function
+     */
+    function applyWithSelf(fn, resolveSelf) {
+      return function() {
+        return fn.apply(resolveSelf(), arguments);
+      }
+    }
+
+    /**
+     * Preprocess arguments before calling the original function:
+     * - if needed convert the parameters
+     * - in case of rest parameters, move the rest parameters into an Array
+     * @param {function} fn
+     * @param {Param[]} params
+     * @return {function} Returns a wrapped function
+     */
+    function compileArgsPreprocessing(fn, params, resolveSelf) {
+      fn = applyWithSelf(fn, resolveSelf);
+      fn = applyConversions(fn, params);
+      fn = applyRestParams(fn, params);
+
+      return fn;
     }
 
     /**
@@ -1055,7 +1083,7 @@
 
       // compile the functions
       var fns = signatures.map(function(signature) {
-        return compileArgsPreprocessing(signature.params, signature.fn, resolveSelf);
+        return compileArgsPreprocessing(signature.fn, signature.params, resolveSelf);
       });
 
       var fn0 = ok0 ? fns[0] : undef;
